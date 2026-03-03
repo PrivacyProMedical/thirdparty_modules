@@ -462,8 +462,11 @@ fn run_dcm2img_jpeg(
     input_path: &Path,
     output_path: &Path,
 ) -> napi::Result<()> {
-    let output = Command::new(binary_path)
+    // try +Wi 1
+    let try_with_voi_window = Command::new(binary_path)
         .env("DCMDICTPATH", dictionary_path)
+        .arg("+Wi")
+        .arg("1")
         .arg("+oj")
         .arg(input_path)
         .arg(output_path)
@@ -476,17 +479,43 @@ fn run_dcm2img_jpeg(
             ))
         })?;
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let stdout = String::from_utf8_lossy(&output.stdout);
+    if try_with_voi_window.status.success() {
+        return Ok(());
+    }
+
+    // try +Wm
+    let try_with_min_max = Command::new(binary_path)
+        .env("DCMDICTPATH", dictionary_path)
+        .arg("+Wm")
+        .arg("+oj")
+        .arg(input_path)
+        .arg(output_path)
+        .output()
+        .map_err(|e| {
+            napi::Error::from_reason(format!(
+                "Failed to execute dcm2img '{}': {}",
+                binary_path.to_string_lossy(),
+                e
+            ))
+        })?;
+
+    if !try_with_min_max.status.success() {
+        let stderr_voi = String::from_utf8_lossy(&try_with_voi_window.stderr);
+        let stdout_voi = String::from_utf8_lossy(&try_with_voi_window.stdout);
+        let stderr_minmax = String::from_utf8_lossy(&try_with_min_max.stderr);
+        let stdout_minmax = String::from_utf8_lossy(&try_with_min_max.stdout);
+
         return Err(napi::Error::from_reason(format!(
-      "dcm2img failed (code: {:?}) for input '{}' and output '{}' using DCMDICTPATH='{}'\nstdout: {}\nstderr: {}",
-      output.status.code(),
+      "dcm2img failed for input '{}' and output '{}' using DCMDICTPATH='{}'.\nAttempt 1 (+Wi 1) code: {:?}\nstdout: {}\nstderr: {}\nAttempt 2 (+Wm) code: {:?}\nstdout: {}\nstderr: {}",
       input_path.to_string_lossy(),
       output_path.to_string_lossy(),
       dictionary_path.to_string_lossy(),
-      stdout,
-      stderr
+      try_with_voi_window.status.code(),
+      stdout_voi,
+      stderr_voi,
+      try_with_min_max.status.code(),
+      stdout_minmax,
+      stderr_minmax
     )));
     }
 
