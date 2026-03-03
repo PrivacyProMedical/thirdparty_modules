@@ -10,11 +10,22 @@ use napi::bindgen_prelude::{JsValue, Object};
 use napi_derive::napi;
 use std::path::PathBuf;
 use std::sync::OnceLock;
+use url::Url;
 
 static NATIVE_MODULE_DIR: OnceLock<PathBuf> = OnceLock::new();
 
 #[allow(dead_code)]
 fn module_file_name_to_path(module_file_name: &str) -> PathBuf {
+    // Prefer robust URL parsing for file:// URLs (handles percent-encoding and platform specifics)
+    if let Ok(url) = Url::parse(module_file_name) {
+        if url.scheme() == "file" {
+            if let Ok(path) = url.to_file_path() {
+                return path;
+            }
+        }
+    }
+
+    // Fallback: handle legacy "file://" prefix or return as-is
     if let Some(rest) = module_file_name.strip_prefix("file://") {
         #[cfg(target_os = "windows")]
         {
