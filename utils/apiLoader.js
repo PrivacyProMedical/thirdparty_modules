@@ -1,4 +1,5 @@
 // api loader & runner to ensure the cwd is correct in case the api method relies on relative path
+import url from 'node:url';
 import path from 'node:path';
 
 export function createApiLoader(apiDir, entryFile = 'index.js') {
@@ -8,7 +9,7 @@ export function createApiLoader(apiDir, entryFile = 'index.js') {
       const cwd = process.cwd();
       process.chdir(apiDir);
       try {
-        this.api = await import(path.join(apiDir, entryFile));
+        this.api = await import(url.pathToFileURL(path.join(apiDir, entryFile)).href);
       } finally {
         process.chdir(cwd);
       }
