@@ -2,4 +2,14 @@
 /* eslint-disable */
 export declare function deidentify2DDicom(srcDcmPath: string, dstDcmPath: string): number
 
+/**
+ * Exports a parsed standard directory JSON into a patient/study/series folder structure.
+ *
+ * Export types:
+ * - 0: Copy original DICOM files
+ * - 1: De-identify and export DICOM files
+ * - 2: Convert each series to NIfTI via dcmdjpeg + dcm2niix
+ * - 3: Convert each instance to JPEG via dcm2img
+ * - 4: Convert each series to MP4 via dcm2img (frames) + ffmpeg
+ */
 export declare function exportParsedStandardDirectory(jsonUtf8Content: string, exportRootDir: string, exportType: number): string
