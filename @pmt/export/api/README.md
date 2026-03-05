@@ -22,7 +22,7 @@ npm install --save-dev ava
   - Add the installation path to your system environment variable `PATH`.
 - Install Tesseract using vcpkg https://github.com/microsoft/vcpkg:
 ```
-vcpkg install tesseract:x64-windows-static
+vcpkg install tesseract:x64-windows-static-md
 ```
 
 ### macOS
