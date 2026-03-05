@@ -23,10 +23,10 @@ const contextMenus = [
     click: async (ctx, ...args) => {},
     ui: true,
   },
-  // /*
+  /*
   isMac && {
     slots: ['folder', 'file'],
-    label: 'Export & Anonymize',
+    label: 'Export & Anonymize'.replace(/&/g, '&&'),
     submenu: [
       {
         slots: ['folder'],
@@ -54,7 +54,7 @@ const contextMenus = [
       },
     ],
   },
-  // */
+  */
 ].filter(Boolean);
 
 export default {
