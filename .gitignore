@@ -1,0 +1,19 @@
+# Downloads cache folder
+/downloads
+# Installed modules
+/installed
+
+# Dependency directories
+node_modules
+
+# Optional npm cache directory
+.npm
+
+# dotenv environment variable files
+.env
+.env.*
+!.env.example
+
+.temp
+.cache
+.DS_Store
