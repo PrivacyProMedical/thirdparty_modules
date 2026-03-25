@@ -1,0 +1,11 @@
+{
+  "name": "dcm2niix",
+  "uploader": "pmt",
+  "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-tools-dcm2niix-1.0.20250506",
+  "description": "dcm2nii DICOM to NIfTI converter: compiled versions available from NITRC.",
+  "version": "1.0.20250506",
+  "author": "rordenlab",
+  "homepage": "https://github.com/rordenlab/dcm2niix",
+  "license": "https://github.com/rordenlab/dcm2niix?tab=License-1-ov-file#readme",
+  "dependencies": []
+}

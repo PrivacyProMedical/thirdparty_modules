@@ -1,0 +1,11 @@
+{
+  "name": "newbee-ocr-cli",
+  "uploader": "pmt",
+  "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-tools-newbee-ocr-cli-0.1.3",
+  "description": "A powerful and easy-to-use command-line OCR tool based on rust-paddle-ocr, providing high-performance text recognition with support for multiple languages, batch processing, and flexible configuration options.",
+  "version": "0.1.3",
+  "author": "zibo-chen",
+  "homepage": "https://github.com/zibo-chen/newbee-ocr-cli",
+  "license": "",
+  "dependencies": []
+}

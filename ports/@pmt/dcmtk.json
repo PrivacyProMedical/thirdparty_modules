@@ -1,0 +1,11 @@
+{
+  "name": "dcmtk",
+  "uploader": "pmt",
+  "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-tools-dcmtk-3.7.0",
+  "description": "DCMTK is a collection of libraries and applications implementing large parts of the DICOM standard.",
+  "version": "3.7.0",
+  "author": "OFFIS",
+  "homepage": "https://dicom.offis.de/en",
+  "license": "https://github.com/DCMTK/dcmtk?tab=License-1-ov-file#readme",
+  "dependencies": []
+}

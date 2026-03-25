@@ -1,0 +1,11 @@
+{
+  "name": "export",
+  "uploader": "pmt",
+  "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-export",
+  "description": "Export module for PMTaro Viewer.",
+  "version": "1.0.0",
+  "author": "pmt",
+  "homepage": "https://github.com/PrivacyProMedical/pmtaro-viewer-export",
+  "license": "https://github.com/PrivacyProMedical/pmtaro-viewer-export?tab=License-1-ov-file#readme",
+  "dependencies": ["@pmt/dcmtk", "@pmt/dcm2niix", "@pmt/ffmpeg", "@pmt/newbee-ocr-cli"]
+}

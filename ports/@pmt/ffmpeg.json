@@ -1,0 +1,11 @@
+{
+  "name": "ffmpeg",
+  "uploader": "pmt",
+  "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-tools-ffmpeg-8.0.1",
+  "description": "FFmpeg is the leading multimedia framework, able to decode, encode, transcode, mux, demux, stream, filter and play pretty much anything that humans and machines have created.",
+  "version": "8.0.1",
+  "author": "FFmpeg Team",
+  "homepage": "https://ffmpeg.org",
+  "license": "https://ffmpeg.org/legal.html",
+  "dependencies": []
+}
