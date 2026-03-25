@@ -1,8 +1,10 @@
 {
   "name": "smooth",
-  "author": "pmt",
-  "version": "1.0.0",
+  "uploader": "pmt",
+  "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-smooth",
   "description": "Smooth 2D and 3D image data with python.",
+  "version": "1.0.0",
+  "author": "STEN",
   "homepage": "https://github.com/PrivacyProMedical/pmtaro-viewer-smooth",
   "license": "MIT",
   "dependencies": []
