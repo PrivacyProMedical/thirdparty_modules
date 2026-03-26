@@ -1,4 +1,5 @@
 {
+  "ui": false,
   "name": "newbee-ocr-cli",
   "uploader": "pmt",
   "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-tools-newbee-ocr-cli-0.1.3",
