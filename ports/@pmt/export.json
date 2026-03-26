@@ -1,5 +1,6 @@
 {
   "name": "export",
+  "display_name": "Export & Anonymize",
   "uploader": "pmt",
   "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-export",
   "description": "Export module for PMTaro Viewer.",
