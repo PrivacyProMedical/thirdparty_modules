@@ -1,6 +1,6 @@
 {
   "name": "smooth",
-  "display_name": "Smooth 2D3D"
+  "display_name": "Smooth 2D3D",
   "uploader": "pmt",
   "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-smooth",
   "description": "Smooth 2D and 3D image data with python.",
