@@ -1,4 +1,5 @@
 {
+  "ui": false,
   "name": "dcm2niix",
   "uploader": "pmt",
   "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-tools-dcm2niix-1.0.20250506",
