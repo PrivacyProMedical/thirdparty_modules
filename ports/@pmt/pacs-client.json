@@ -1,0 +1,12 @@
+{
+  "name": "pacs-client",
+  "display_name": "PACS Client",
+  "uploader": "pmt",
+  "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-pacs-client",
+  "description": "A PACS client with Query/Retrieve capabilities.",
+  "version": "1.0.0",
+  "author": "pmt",
+  "homepage": "https://github.com/PrivacyProMedical/pmtaro-viewer-pacs-client",
+  "license": "MIT",
+  "dependencies": ["@pmt/dcmtk"]
+}
