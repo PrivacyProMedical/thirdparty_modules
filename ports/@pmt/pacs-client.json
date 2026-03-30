@@ -1,6 +1,6 @@
 {
   "name": "pacs-client",
-  "display_name": "PACS Client",
+  "display_name": "DICOM Servers",
   "uploader": "pmt",
   "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-pacs-client",
   "description": "A PACS client with Query/Retrieve capabilities.",
