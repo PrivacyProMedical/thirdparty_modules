@@ -1,0 +1,12 @@
+{
+  "ui": false,
+  "name": "module-encryptor-node",
+  "uploader": "pmt",
+  "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-module-encryptor-node",
+  "description": "The runtime of the protected Python module (pmtpy1).",
+  "version": "1.0.0",
+  "author": "pmt",
+  "homepage": "https://github.com/PrivacyProMedical/pmtaro-viewer-module-encryptor-node",
+  "license": "MIT",
+  "dependencies": []
+}
