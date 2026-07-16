@@ -1,0 +1,12 @@
+{
+  "name": "t1rho",
+  "display_name": "T1rho",
+  "uploader": "pmt",
+  "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-t1rho.git",
+  "description": "Fit a T1rho map from four MRI DICOM instances and display a jet pseudo-color preview.",
+  "version": "1.0.0",
+  "author": "pmt",
+  "homepage": "https://github.com/PrivacyProMedical/pmtaro-viewer-t1rho",
+  "license": "MIT",
+  "dependencies": []
+}

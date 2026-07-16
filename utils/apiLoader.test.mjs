@@ -1,0 +1,266 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import {
+  ExportModuleApiValidationError,
+  validateExportModuleApiInspection,
+  validateExportedFunctionCall,
+  validateExportedFunctionResult,
+} from './apiLoader.js';
+
+// These are pure unit tests for the shared validation helpers.
+// They intentionally use synthetic declarations and source labels so they do
+// not depend on optional installed modules being present on disk.
+
+function buildInstancePayload() {
+  return {
+    from: 'patient',
+    root: '/data',
+    keys: ['Patient A', 'Study 1', 'Series 2', 'Instance 3'],
+    selection: {
+      slot: 'instance',
+      level: 4,
+      name: 'image.dcm',
+      fileName: 'image.dcm',
+      filePath: '/data/image.dcm',
+    },
+  };
+}
+
+function buildModuleFilePayload(name, path) {
+  return {
+    from: 'module',
+    selection: {
+      name,
+      path,
+      isFile: true,
+    },
+  };
+}
+
+function buildInspection(functionName, args, returns, parameters = args.map((arg) => ({ name: arg.name, kind: 'POSITIONAL_OR_KEYWORD', has_default: Boolean(Object.prototype.hasOwnProperty.call(arg, 'default')) }))) {
+  return {
+    has_export_module_api: true,
+    export_module_api: {
+      version: 1,
+      functions: {
+        [functionName]: {
+          args,
+          returns,
+        },
+      },
+    },
+    defined_functions: {
+      [functionName]: {
+        parameters,
+      },
+    },
+  };
+}
+
+test('validateExportedFunctionResult accepts named multi-file returns declared with fields', () => {
+  const moduleApi = validateExportModuleApiInspection(buildInspection(
+    'fit_t1rho_map',
+    [
+      { name: 'instance1', type: 'INSTANCE' },
+      { name: 'output_dir', type: 'STRING' },
+    ],
+    {
+      fields: [
+        { name: 'output_dcm', type: 'FILE' },
+        { name: 'preview_png', type: 'FILE' },
+      ],
+    },
+  ), { sourceLabel: 'fixture:fit_t1rho_map' });
+
+  const result = {
+    output_dcm: {
+      from: 'module',
+      selection: {
+        name: 'T1rho_Map.dcm',
+        path: '/tmp/T1rho_Map.dcm',
+        isFile: true,
+      },
+    },
+    preview_png: {
+      from: 'module',
+      selection: {
+        name: 'T1rho_Map_Preview.png',
+        path: '/tmp/T1rho_Map_Preview.png',
+        isFile: true,
+      },
+    },
+  };
+
+  assert.deepEqual(validateExportedFunctionResult(moduleApi, 'fit_t1rho_map', result), result);
+});
+
+test('validateExportedFunctionResult rejects named field returns when a declared field is missing', () => {
+  const moduleApi = validateExportModuleApiInspection(buildInspection(
+    'fit_t1rho_map',
+    [
+      { name: 'instance1', type: 'INSTANCE' },
+      { name: 'output_dir', type: 'STRING' },
+    ],
+    {
+      fields: [
+        { name: 'output_dcm', type: 'FILE' },
+        { name: 'preview_png', type: 'FILE' },
+      ],
+    },
+  ), { sourceLabel: 'fixture:fit_t1rho_map' });
+
+  assert.throws(
+    () => validateExportedFunctionResult(moduleApi, 'fit_t1rho_map', {
+      output_dcm: {
+        from: 'module',
+        selection: {
+          name: 'T1rho_Map.dcm',
+          path: '/tmp/T1rho_Map.dcm',
+          isFile: true,
+        },
+      },
+    }),
+    (error) => {
+      assert.ok(error instanceof ExportModuleApiValidationError);
+      assert.equal(error.code, 'EXPORT_API_RETURN_VALUE_INVALID');
+      assert.match(error.message, /missing field 'preview_png'/);
+      return true;
+    },
+  );
+});
+
+test('validateExportedFunctionCall applies declared defaults to trailing optional args', () => {
+  const moduleApi = validateExportModuleApiInspection(buildInspection(
+    'smooth',
+    [
+      { name: 'selection', type: 'INSTANCE' },
+      { name: 'sigma', type: 'NUMBER', required: false, default: 0.3 },
+      { name: 'output_dir', type: 'STRING', required: false, default: '/tmp/smooth' },
+    ],
+    { type: 'FILE' },
+  ), { sourceLabel: 'fixture:smooth' });
+
+  const selection = buildInstancePayload();
+
+  assert.deepEqual(
+    validateExportedFunctionCall(moduleApi, 'smooth', [selection]),
+    [selection, 0.3, '/tmp/smooth'],
+  );
+});
+
+test('validateExportedFunctionCall allows explicit null only for nullable args', () => {
+  const nullableApi = validateExportModuleApiInspection(buildInspection(
+    'mpf_result',
+    [
+      { name: 'selection', type: 'INSTANCE' },
+      { name: 'stats_file', type: 'FILE', required: false, nullable: true },
+    ],
+    { type: 'FILE' },
+  ), { sourceLabel: 'fixture:mpf_result' });
+
+  const selection = buildInstancePayload();
+
+  assert.deepEqual(
+    validateExportedFunctionCall(nullableApi, 'mpf_result', [selection, null]),
+    [selection, null],
+  );
+
+  const nonNullableApi = validateExportModuleApiInspection(buildInspection(
+    'mpf_result',
+    [
+      { name: 'selection', type: 'INSTANCE' },
+      { name: 'stats_file', type: 'FILE', required: false },
+    ],
+    { type: 'FILE' },
+  ), { sourceLabel: 'fixture:mpf_result' });
+
+  assert.throws(
+    () => validateExportedFunctionCall(nonNullableApi, 'mpf_result', [selection, null]),
+    (error) => {
+      assert.ok(error instanceof ExportModuleApiValidationError);
+      assert.equal(error.code, 'EXPORT_API_ARGUMENT_TYPE_INVALID');
+      assert.match(error.message, /stats_file/);
+      return true;
+    },
+  );
+});
+
+test('validateExportedFunctionCall rejects boolean values for NUMBER args', () => {
+  const moduleApi = validateExportModuleApiInspection(buildInspection(
+    'smooth',
+    [
+      { name: 'selection', type: 'INSTANCE' },
+      { name: 'sigma', type: 'NUMBER', required: false, default: 0.3 },
+      { name: 'output_dir', type: 'STRING', required: false, default: '/tmp/smooth' },
+    ],
+    { type: 'FILE' },
+  ), { sourceLabel: 'fixture:smooth' });
+
+  assert.throws(
+    () => validateExportedFunctionCall(moduleApi, 'smooth', [buildInstancePayload(), true, '/tmp/smooth']),
+    (error) => {
+      assert.ok(error instanceof ExportModuleApiValidationError);
+      assert.equal(error.code, 'EXPORT_API_ARGUMENT_TYPE_INVALID');
+      assert.match(error.message, /sigma/);
+      return true;
+    },
+  );
+});
+
+test('validateExportedFunctionResult rejects FILE outputs that are not module-originated payloads', () => {
+  const moduleApi = validateExportModuleApiInspection(buildInspection(
+    'smooth',
+    [
+      { name: 'selection', type: 'INSTANCE' },
+      { name: 'sigma', type: 'NUMBER', required: false, default: 0.3 },
+      { name: 'output_dir', type: 'STRING', required: false, default: '/tmp/smooth' },
+    ],
+    { type: 'FILE' },
+  ), { sourceLabel: 'fixture:smooth' });
+
+  assert.deepEqual(
+    validateExportedFunctionResult(moduleApi, 'smooth', buildModuleFilePayload('smoothed_image.dcm', '/tmp/smoothed_image.dcm')),
+    buildModuleFilePayload('smoothed_image.dcm', '/tmp/smoothed_image.dcm'),
+  );
+
+  assert.throws(
+    () => validateExportedFunctionResult(moduleApi, 'smooth', {
+      from: 'root',
+      selection: {
+        name: 'smoothed_image.dcm',
+        path: '/tmp/smoothed_image.dcm',
+        isFile: true,
+      },
+    }),
+    (error) => {
+      assert.ok(error instanceof ExportModuleApiValidationError);
+      assert.equal(error.code, 'EXPORT_API_RETURN_VALUE_INVALID');
+      assert.match(error.message, /must use FILE/);
+      return true;
+    },
+  );
+});
+
+test('validateExportModuleApiInspection rejects declaration args that do not match Python signature names', () => {
+  assert.throws(
+    () => validateExportModuleApiInspection(buildInspection(
+      'smooth',
+      [
+        { name: 'selection', type: 'INSTANCE' },
+        { name: 'sigma', type: 'NUMBER', required: false, default: 0.3 },
+      ],
+      { type: 'FILE' },
+      [
+        { name: 'selection_payload', kind: 'POSITIONAL_OR_KEYWORD', has_default: false },
+        { name: 'sigma', kind: 'POSITIONAL_OR_KEYWORD', has_default: true },
+      ],
+    ), { sourceLabel: 'fixture:smooth' }),
+    (error) => {
+      assert.ok(error instanceof ExportModuleApiValidationError);
+      assert.equal(error.code, 'EXPORT_API_FUNCTION_SIGNATURE_INVALID');
+      assert.match(error.message, /selection.*selection_payload/);
+      return true;
+    },
+  );
+});
