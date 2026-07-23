@@ -698,6 +698,7 @@ function normalizeArgumentDeclaration(argDecl, context) {
     required,
     nullable,
     ...(Object.prototype.hasOwnProperty.call(argDecl, 'default') ? { default: argDecl.default } : {}),
+    ...(typeof argDecl.placeholder === 'string' ? { placeholder: argDecl.placeholder } : {}),
   };
 }
 
