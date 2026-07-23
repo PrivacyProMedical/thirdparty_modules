@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  ExportModuleApiValidationError,
-  validateExportModuleApiInspection,
+  ModuleSchemaValidationError,
+  validateModuleSchema,
   validateExportedFunctionCall,
   validateExportedFunctionResult,
 } from './apiLoader.js';
@@ -38,28 +38,38 @@ function buildModuleFilePayload(name, path) {
   };
 }
 
-function buildInspection(functionName, args, returns, parameters = args.map((arg) => ({ name: arg.name, kind: 'POSITIONAL_OR_KEYWORD', has_default: Boolean(Object.prototype.hasOwnProperty.call(arg, 'default')) }))) {
+function buildSchema(functionName, args, returns) {
   return {
-    has_export_module_api: true,
-    export_module_api: {
-      version: 1,
-      functions: {
-        [functionName]: {
-          args,
-          returns,
-        },
-      },
-    },
-    defined_functions: {
+    version: 1,
+    functions: {
       [functionName]: {
-        parameters,
+        args,
+        returns,
       },
     },
   };
 }
 
+function buildDefinedFunctions(args, parameters = args.map((arg) => ({ name: arg.name, kind: 'POSITIONAL_OR_KEYWORD', has_default: Boolean(Object.prototype.hasOwnProperty.call(arg, 'default')) }))) {
+  return {
+    parameters,
+  };
+}
+
+function buildModuleApi(functionName, args, returns, parameters = args.map((arg) => ({ name: arg.name, kind: 'POSITIONAL_OR_KEYWORD', has_default: Boolean(Object.prototype.hasOwnProperty.call(arg, 'default')) }))) {
+  return validateModuleSchema(
+    buildSchema(functionName, args, returns),
+    {
+      sourceLabel: `fixture:${functionName}`,
+      definedFunctions: {
+        [functionName]: buildDefinedFunctions(args, parameters),
+      },
+    },
+  );
+}
+
 test('validateExportedFunctionResult accepts named multi-file returns declared with fields', () => {
-  const moduleApi = validateExportModuleApiInspection(buildInspection(
+  const moduleApi = buildModuleApi(
     'fit_t1rho_map',
     [
       { name: 'instance1', type: 'INSTANCE' },
@@ -71,7 +81,7 @@ test('validateExportedFunctionResult accepts named multi-file returns declared w
         { name: 'preview_png', type: 'FILE' },
       ],
     },
-  ), { sourceLabel: 'fixture:fit_t1rho_map' });
+  );
 
   const result = {
     output_dcm: {
@@ -96,7 +106,7 @@ test('validateExportedFunctionResult accepts named multi-file returns declared w
 });
 
 test('validateExportedFunctionResult rejects named field returns when a declared field is missing', () => {
-  const moduleApi = validateExportModuleApiInspection(buildInspection(
+  const moduleApi = buildModuleApi(
     'fit_t1rho_map',
     [
       { name: 'instance1', type: 'INSTANCE' },
@@ -108,7 +118,7 @@ test('validateExportedFunctionResult rejects named field returns when a declared
         { name: 'preview_png', type: 'FILE' },
       ],
     },
-  ), { sourceLabel: 'fixture:fit_t1rho_map' });
+  );
 
   assert.throws(
     () => validateExportedFunctionResult(moduleApi, 'fit_t1rho_map', {
@@ -122,7 +132,7 @@ test('validateExportedFunctionResult rejects named field returns when a declared
       },
     }),
     (error) => {
-      assert.ok(error instanceof ExportModuleApiValidationError);
+      assert.ok(error instanceof ModuleSchemaValidationError);
       assert.equal(error.code, 'EXPORT_API_RETURN_VALUE_INVALID');
       assert.match(error.message, /missing field 'preview_png'/);
       return true;
@@ -131,7 +141,7 @@ test('validateExportedFunctionResult rejects named field returns when a declared
 });
 
 test('validateExportedFunctionCall applies declared defaults to trailing optional args', () => {
-  const moduleApi = validateExportModuleApiInspection(buildInspection(
+  const moduleApi = buildModuleApi(
     'smooth',
     [
       { name: 'selection', type: 'INSTANCE' },
@@ -139,7 +149,7 @@ test('validateExportedFunctionCall applies declared defaults to trailing optiona
       { name: 'output_dir', type: 'STRING', required: false, default: '/tmp/smooth' },
     ],
     { type: 'FILE' },
-  ), { sourceLabel: 'fixture:smooth' });
+  );
 
   const selection = buildInstancePayload();
 
@@ -150,14 +160,14 @@ test('validateExportedFunctionCall applies declared defaults to trailing optiona
 });
 
 test('validateExportedFunctionCall allows explicit null only for nullable args', () => {
-  const nullableApi = validateExportModuleApiInspection(buildInspection(
+  const nullableApi = buildModuleApi(
     'mpf_result',
     [
       { name: 'selection', type: 'INSTANCE' },
       { name: 'stats_file', type: 'FILE', required: false, nullable: true },
     ],
     { type: 'FILE' },
-  ), { sourceLabel: 'fixture:mpf_result' });
+  );
 
   const selection = buildInstancePayload();
 
@@ -166,19 +176,19 @@ test('validateExportedFunctionCall allows explicit null only for nullable args',
     [selection, null],
   );
 
-  const nonNullableApi = validateExportModuleApiInspection(buildInspection(
+  const nonNullableApi = buildModuleApi(
     'mpf_result',
     [
       { name: 'selection', type: 'INSTANCE' },
       { name: 'stats_file', type: 'FILE', required: false },
     ],
     { type: 'FILE' },
-  ), { sourceLabel: 'fixture:mpf_result' });
+  );
 
   assert.throws(
     () => validateExportedFunctionCall(nonNullableApi, 'mpf_result', [selection, null]),
     (error) => {
-      assert.ok(error instanceof ExportModuleApiValidationError);
+      assert.ok(error instanceof ModuleSchemaValidationError);
       assert.equal(error.code, 'EXPORT_API_ARGUMENT_TYPE_INVALID');
       assert.match(error.message, /stats_file/);
       return true;
@@ -187,7 +197,7 @@ test('validateExportedFunctionCall allows explicit null only for nullable args',
 });
 
 test('validateExportedFunctionCall rejects boolean values for NUMBER args', () => {
-  const moduleApi = validateExportModuleApiInspection(buildInspection(
+  const moduleApi = buildModuleApi(
     'smooth',
     [
       { name: 'selection', type: 'INSTANCE' },
@@ -195,12 +205,12 @@ test('validateExportedFunctionCall rejects boolean values for NUMBER args', () =
       { name: 'output_dir', type: 'STRING', required: false, default: '/tmp/smooth' },
     ],
     { type: 'FILE' },
-  ), { sourceLabel: 'fixture:smooth' });
+  );
 
   assert.throws(
     () => validateExportedFunctionCall(moduleApi, 'smooth', [buildInstancePayload(), true, '/tmp/smooth']),
     (error) => {
-      assert.ok(error instanceof ExportModuleApiValidationError);
+      assert.ok(error instanceof ModuleSchemaValidationError);
       assert.equal(error.code, 'EXPORT_API_ARGUMENT_TYPE_INVALID');
       assert.match(error.message, /sigma/);
       return true;
@@ -209,7 +219,7 @@ test('validateExportedFunctionCall rejects boolean values for NUMBER args', () =
 });
 
 test('validateExportedFunctionResult rejects FILE outputs that are not module-originated payloads', () => {
-  const moduleApi = validateExportModuleApiInspection(buildInspection(
+  const moduleApi = buildModuleApi(
     'smooth',
     [
       { name: 'selection', type: 'INSTANCE' },
@@ -217,7 +227,7 @@ test('validateExportedFunctionResult rejects FILE outputs that are not module-or
       { name: 'output_dir', type: 'STRING', required: false, default: '/tmp/smooth' },
     ],
     { type: 'FILE' },
-  ), { sourceLabel: 'fixture:smooth' });
+  );
 
   assert.deepEqual(
     validateExportedFunctionResult(moduleApi, 'smooth', buildModuleFilePayload('smoothed_image.dcm', '/tmp/smoothed_image.dcm')),
@@ -234,7 +244,7 @@ test('validateExportedFunctionResult rejects FILE outputs that are not module-or
       },
     }),
     (error) => {
-      assert.ok(error instanceof ExportModuleApiValidationError);
+      assert.ok(error instanceof ModuleSchemaValidationError);
       assert.equal(error.code, 'EXPORT_API_RETURN_VALUE_INVALID');
       assert.match(error.message, /must use FILE/);
       return true;
@@ -242,9 +252,9 @@ test('validateExportedFunctionResult rejects FILE outputs that are not module-or
   );
 });
 
-test('validateExportModuleApiInspection rejects declaration args that do not match Python signature names', () => {
+test('validateModuleSchema rejects declaration args that do not match Python signature names', () => {
   assert.throws(
-    () => validateExportModuleApiInspection(buildInspection(
+    () => buildModuleApi(
       'smooth',
       [
         { name: 'selection', type: 'INSTANCE' },
@@ -255,10 +265,10 @@ test('validateExportModuleApiInspection rejects declaration args that do not mat
         { name: 'selection_payload', kind: 'POSITIONAL_OR_KEYWORD', has_default: false },
         { name: 'sigma', kind: 'POSITIONAL_OR_KEYWORD', has_default: true },
       ],
-    ), { sourceLabel: 'fixture:smooth' }),
+    ),
     (error) => {
-      assert.ok(error instanceof ExportModuleApiValidationError);
-      assert.equal(error.code, 'EXPORT_API_FUNCTION_SIGNATURE_INVALID');
+      assert.ok(error instanceof ModuleSchemaValidationError);
+      assert.equal(error.code, 'MODULE_SCHEMA_FUNCTION_SIGNATURE_INVALID');
       assert.match(error.message, /selection.*selection_payload/);
       return true;
     },

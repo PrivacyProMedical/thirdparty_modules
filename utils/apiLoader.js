@@ -51,11 +51,10 @@ const STANDARD_API_TYPES = new Set([
   'BOOLEAN',
 ]);
 
-const EXPORT_MODULE_API_INTROSPECTION_SCRIPT = String.raw`
+const PYODIDE_DEFINED_FUNCTIONS_INTROSPECTION_SCRIPT = String.raw`
 import inspect
 
-def __pmt_export_module_api_introspection():
-    export_api = globals().get('__export_module_api__')
+def __pmt_defined_functions_introspection():
     defined = {}
     for name, obj in globals().items():
         if inspect.isfunction(obj) and getattr(obj, '__module__', None) == '__main__':
@@ -74,12 +73,10 @@ def __pmt_export_module_api_introspection():
                 ]
             }
     return {
-        'has_export_module_api': export_api is not None,
-        'export_module_api': export_api,
         'defined_functions': defined,
     }
 
-__pmt_export_module_api_introspection()
+__pmt_defined_functions_introspection()
 `;
 
 const PYODIDE_MODULE_ENVIRONMENT_SETUP_SCRIPT = String.raw`
@@ -90,11 +87,11 @@ if _module_dir and _module_dir not in sys.path:
   sys.path.insert(0, _module_dir)
 `;
 
-export class ExportModuleApiValidationError extends Error {
+export class ModuleSchemaValidationError extends Error {
   constructor(message, details = {}) {
     super(message);
-    this.name = 'ExportModuleApiValidationError';
-    this.code = details.code || 'EXPORT_MODULE_API_VALIDATION_ERROR';
+    this.name = 'ModuleSchemaValidationError';
+    this.code = details.code || 'MODULE_SCHEMA_VALIDATION_ERROR';
     this.phase = details.phase || 'load';
     this.functionName = details.functionName || null;
     this.details = details;
@@ -142,8 +139,8 @@ function ensurePyodideDir(pyodide, dirPath) {
   }
 }
 
-export function inspectPyodideExportModuleApi(pyodide) {
-  const proxy = pyodide.runPython(EXPORT_MODULE_API_INTROSPECTION_SCRIPT);
+export function inspectPyodideDefinedFunctions(pyodide) {
+  const proxy = pyodide.runPython(PYODIDE_DEFINED_FUNCTIONS_INTROSPECTION_SCRIPT);
   try {
     if (proxy && typeof proxy.toJs === 'function') {
       return proxy.toJs({ dict_converter: Object.fromEntries });
@@ -154,78 +151,87 @@ export function inspectPyodideExportModuleApi(pyodide) {
   }
 }
 
-export function parseAndValidatePyodideExportModuleApi(pyodide, options = {}) {
-  const inspection = inspectPyodideExportModuleApi(pyodide);
-  return validateExportModuleApiInspection(inspection, options);
+export function createFreeModeModuleApi(sourceLabel, definedFunctions = {}) {
+  return {
+    mode: 'free',
+    sourceLabel,
+    moduleSchema: null,
+    definedFunctions,
+    exportedFunctions: {},
+  };
 }
 
-export function validateExportModuleApiInspection(inspection, options = {}) {
-  const sourceLabel = options.sourceLabel || '__export_module_api__';
-  const definedFunctions = isPlainObject(inspection?.defined_functions)
-    ? inspection.defined_functions
+export function readAndValidateModuleSchema(schemaPath, options = {}) {
+  if (!(schemaPath && fs.existsSync(schemaPath))) {
+    return null;
+  }
+  let schemaSource = '';
+  try {
+    schemaSource = fs.readFileSync(schemaPath, 'utf-8');
+  } catch (error) {
+    throwValidationError(`Failed to read module schema at '${schemaPath}'.`, {
+      code: 'MODULE_SCHEMA_READ_FAILED',
+      sourceLabel: options.sourceLabel || schemaPath,
+      error,
+    });
+  }
+
+  let moduleSchema = null;
+  try {
+    moduleSchema = JSON.parse(schemaSource);
+  } catch (error) {
+    throwValidationError(`Module schema at '${schemaPath}' must be valid JSON.`, {
+      code: 'MODULE_SCHEMA_INVALID_JSON',
+      sourceLabel: options.sourceLabel || schemaPath,
+      error,
+    });
+  }
+
+  return validateModuleSchema(moduleSchema, {
+    ...options,
+    sourceLabel: options.sourceLabel || schemaPath,
+  });
+}
+
+export function validateModuleSchema(moduleSchema, options = {}) {
+  const sourceLabel = options.sourceLabel || 'api/schema.json';
+  const hasDefinedFunctions = Object.prototype.hasOwnProperty.call(options, 'definedFunctions');
+  const definedFunctions = isPlainObject(options.definedFunctions)
+    ? options.definedFunctions
     : {};
 
-  if (!inspection?.has_export_module_api) {
-    return {
-      mode: 'free',
-      sourceLabel,
-      exportModuleApi: null,
-      definedFunctions,
-      exportedFunctions: {},
-    };
-  }
-
-  const exportModuleApi = inspection?.export_module_api;
-  if (!isPlainObject(exportModuleApi)) {
-    throwValidationError(`${sourceLabel} must be a dict-like object.`, {
-      code: 'EXPORT_API_INVALID_SHAPE',
+  if (!isPlainObject(moduleSchema)) {
+    throwValidationError(`${sourceLabel} must be a JSON object.`, {
+      code: 'MODULE_SCHEMA_INVALID_SHAPE',
       sourceLabel,
     });
   }
 
-  if (exportModuleApi.version !== 1) {
+  if (moduleSchema.version !== 1) {
     throwValidationError(`${sourceLabel}.version must equal 1.`, {
-      code: 'EXPORT_API_INVALID_VERSION',
+      code: 'MODULE_SCHEMA_INVALID_VERSION',
       sourceLabel,
     });
   }
 
-  if (!isPlainObject(exportModuleApi.functions) || Object.keys(exportModuleApi.functions).length === 0) {
+  if (!isPlainObject(moduleSchema.functions) || Object.keys(moduleSchema.functions).length === 0) {
     throwValidationError(`${sourceLabel}.functions must be a non-empty object.`, {
-      code: 'EXPORT_API_INVALID_FUNCTIONS',
+      code: 'MODULE_SCHEMA_INVALID_FUNCTIONS',
       sourceLabel,
     });
   }
 
   const exportedFunctions = {};
-  for (const [functionName, functionDecl] of Object.entries(exportModuleApi.functions)) {
+  for (const [functionName, functionDecl] of Object.entries(moduleSchema.functions)) {
     if (!functionName) {
       throwValidationError(`${sourceLabel}.functions contains an empty function name.`, {
-        code: 'EXPORT_API_INVALID_FUNCTION_NAME',
+        code: 'MODULE_SCHEMA_INVALID_FUNCTION_NAME',
         sourceLabel,
       });
     }
     if (!isPlainObject(functionDecl)) {
       throwValidationError(`Function declaration for '${functionName}' must be an object.`, {
-        code: 'EXPORT_API_FUNCTION_SCHEMA_INVALID',
-        sourceLabel,
-        functionName,
-      });
-    }
-
-    const definedMeta = definedFunctions[functionName];
-    if (!definedMeta) {
-      throwValidationError(`Declared function '${functionName}' was not found in defined_functions.`, {
-        code: 'EXPORT_API_FUNCTION_NOT_FOUND',
-        sourceLabel,
-        functionName,
-      });
-    }
-
-    const signatureParameters = Array.isArray(definedMeta.parameters) ? definedMeta.parameters : [];
-    if (signatureParameters.some(parameter => ['VAR_POSITIONAL', 'VAR_KEYWORD'].includes(parameter.kind))) {
-      throwValidationError(`Function '${functionName}' cannot use *args or **kwargs in standard mode.`, {
-        code: 'EXPORT_API_FUNCTION_SIGNATURE_INVALID',
+        code: 'MODULE_SCHEMA_FUNCTION_SCHEMA_INVALID',
         sourceLabel,
         functionName,
       });
@@ -233,7 +239,7 @@ export function validateExportModuleApiInspection(inspection, options = {}) {
 
     if (!Array.isArray(functionDecl.args)) {
       throwValidationError(`Function '${functionName}' must declare args as an array.`, {
-        code: 'EXPORT_API_FUNCTION_SCHEMA_INVALID',
+        code: 'MODULE_SCHEMA_FUNCTION_SCHEMA_INVALID',
         sourceLabel,
         functionName,
       });
@@ -241,7 +247,7 @@ export function validateExportModuleApiInspection(inspection, options = {}) {
 
     if (!isPlainObject(functionDecl.returns)) {
       throwValidationError(`Function '${functionName}' must declare returns as an object.`, {
-        code: 'EXPORT_API_FUNCTION_SCHEMA_INVALID',
+        code: 'MODULE_SCHEMA_FUNCTION_SCHEMA_INVALID',
         sourceLabel,
         functionName,
       });
@@ -253,30 +259,50 @@ export function validateExportModuleApiInspection(inspection, options = {}) {
       index,
     }));
 
-    if (signatureParameters.length !== normalizedArgs.length) {
-      throwValidationError(
-        `Function '${functionName}' declaration args length (${normalizedArgs.length}) does not match the Python signature (${signatureParameters.length}).`,
-        {
-          code: 'EXPORT_API_FUNCTION_SIGNATURE_INVALID',
+    const definedMeta = definedFunctions[functionName];
+    if (hasDefinedFunctions) {
+      if (!definedMeta) {
+        throwValidationError(`Declared function '${functionName}' was not found in defined_functions.`, {
+          code: 'MODULE_SCHEMA_FUNCTION_NOT_FOUND',
           sourceLabel,
           functionName,
-        },
-      );
-    }
+        });
+      }
 
-    normalizedArgs.forEach((argDecl, index) => {
-      const signatureParameter = signatureParameters[index];
-      if (signatureParameter?.name !== argDecl.name) {
+      const signatureParameters = Array.isArray(definedMeta.parameters) ? definedMeta.parameters : [];
+      if (signatureParameters.some(parameter => ['VAR_POSITIONAL', 'VAR_KEYWORD'].includes(parameter.kind))) {
+        throwValidationError(`Function '${functionName}' cannot use *args or **kwargs in standard mode.`, {
+          code: 'MODULE_SCHEMA_FUNCTION_SIGNATURE_INVALID',
+          sourceLabel,
+          functionName,
+        });
+      }
+
+      if (signatureParameters.length !== normalizedArgs.length) {
         throwValidationError(
-          `Function '${functionName}' declaration arg '${argDecl.name}' does not match Python signature parameter '${signatureParameter?.name || '<missing>'}'.`,
+          `Function '${functionName}' declaration args length (${normalizedArgs.length}) does not match the Python signature (${signatureParameters.length}).`,
           {
-            code: 'EXPORT_API_FUNCTION_SIGNATURE_INVALID',
+            code: 'MODULE_SCHEMA_FUNCTION_SIGNATURE_INVALID',
             sourceLabel,
             functionName,
           },
         );
       }
-    });
+
+      normalizedArgs.forEach((argDecl, index) => {
+        const signatureParameter = signatureParameters[index];
+        if (signatureParameter?.name !== argDecl.name) {
+          throwValidationError(
+            `Function '${functionName}' declaration arg '${argDecl.name}' does not match Python signature parameter '${signatureParameter?.name || '<missing>'}'.`,
+            {
+              code: 'MODULE_SCHEMA_FUNCTION_SIGNATURE_INVALID',
+              sourceLabel,
+              functionName,
+            },
+          );
+        }
+      });
+    }
 
     exportedFunctions[functionName] = {
       name: functionName,
@@ -285,14 +311,14 @@ export function validateExportModuleApiInspection(inspection, options = {}) {
         functionName,
         sourceLabel,
       }),
-      signature: definedMeta,
+      ...(definedMeta ? { signature: definedMeta } : {}),
     };
   }
 
   return {
     mode: 'standard',
     sourceLabel,
-    exportModuleApi,
+    moduleSchema,
     definedFunctions,
     exportedFunctions,
   };
@@ -399,23 +425,6 @@ export function validateExportedFunctionResult(moduleApi, functionName, result) 
   return result;
 }
 
-export function createExportModuleApiDebugSnapshot(moduleApi, overrides = {}) {
-  return {
-    mode: moduleApi?.mode || 'free',
-    sourceLabel: overrides.sourceLabel || moduleApi?.sourceLabel || '__export_module_api__',
-    exportModuleApi: moduleApi?.exportModuleApi || null,
-    definedFunctions: moduleApi?.definedFunctions || {},
-    exportedFunctions: moduleApi?.exportedFunctions || {},
-  };
-}
-
-export function createExportModuleApiDebugHandler(getModuleApi) {
-  return async function __debug_export_module_api__() {
-    const moduleApi = await getModuleApi();
-    return createExportModuleApiDebugSnapshot(moduleApi);
-  };
-}
-
 export function createPyodideModuleRuntime({
   moduleDir,
   loadPyodide,
@@ -426,7 +435,7 @@ export function createPyodideModuleRuntime({
   let mainPy = '';
   let py = '';
   let pyodide = null;
-  let exportModuleApi = null;
+  let moduleApi = null;
 
   async function init(ctx) {
     if (pyodide || py || mainPy) {
@@ -446,6 +455,12 @@ export function createPyodideModuleRuntime({
     if (!py) {
       return pyodide;
     }
+
+    const schemaPath = path.join(path.dirname(mainPy), 'schema.json');
+    const moduleSchemaSnapshot = readAndValidateModuleSchema(schemaPath, {
+      sourceLabel,
+    });
+    const moduleSchema = moduleSchemaSnapshot?.moduleSchema || null;
 
     const packageCacheDir = path.join(path.dirname(mainPy), 'requirements');
     if (!fs.existsSync(packageCacheDir)) {
@@ -481,9 +496,13 @@ export function createPyodideModuleRuntime({
     await pyodide.runPythonAsync(py);
     micropip.destroy();
 
-    exportModuleApi = parseAndValidatePyodideExportModuleApi(pyodide, {
-      sourceLabel,
-    });
+    const inspection = inspectPyodideDefinedFunctions(pyodide);
+    moduleApi = moduleSchema
+      ? validateModuleSchema(moduleSchema, {
+        sourceLabel,
+        definedFunctions: inspection?.defined_functions || {},
+      })
+      : createFreeModeModuleApi(sourceLabel, inspection?.defined_functions || {});
 
     return pyodide;
   }
@@ -492,8 +511,8 @@ export function createPyodideModuleRuntime({
     return pyodide;
   }
 
-  function getExportModuleApi() {
-    return exportModuleApi;
+  function getModuleApi() {
+    return moduleApi;
   }
 
   function cloneJson(value) {
@@ -590,11 +609,11 @@ export function createPyodideModuleRuntime({
   }
 
   function validateCall(functionName, providedArgs = []) {
-    return validateExportedFunctionCall(exportModuleApi, functionName, providedArgs);
+    return validateExportedFunctionCall(moduleApi, functionName, providedArgs);
   }
 
   function validateResult(functionName, result) {
-    return validateExportedFunctionResult(exportModuleApi, functionName, result);
+    return validateExportedFunctionResult(moduleApi, functionName, result);
   }
 
   async function invokePythonFunction(functionName, args = []) {
@@ -613,7 +632,7 @@ export function createPyodideModuleRuntime({
   return {
     init,
     getPyodide,
-    getExportModuleApi,
+    getModuleApi,
     cloneJson,
     bridgeHostFileToVFS,
     bridgeFileFromVFS,
@@ -625,12 +644,6 @@ export function createPyodideModuleRuntime({
     validateCall,
     validateResult,
     invokePythonFunction,
-    createDebugHandler() {
-      return createExportModuleApiDebugHandler(async () => {
-        await init();
-        return exportModuleApi;
-      });
-    },
   };
 }
 
@@ -895,7 +908,10 @@ function describeRuntimeType(value) {
 }
 
 function throwValidationError(message, details = {}) {
-  throw new ExportModuleApiValidationError(message, details);
+  throw new ModuleSchemaValidationError(message, {
+    ...details,
+    code: details.code || 'MODULE_SCHEMA_VALIDATION_ERROR',
+  });
 }
 
 function isPlainObject(value) {
