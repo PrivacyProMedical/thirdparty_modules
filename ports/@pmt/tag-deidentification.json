@@ -1,0 +1,12 @@
+{
+  "name": "tag-deidentification",
+  "display_name": "Tag De-Identification",
+  "uploader": "pmt",
+  "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-tag-deidentification",
+  "description": "Anonymize DICOM tag metadata for patient privacy protection. Based on DICOM PS3.15 Annex E, Table E.1-1.",
+  "version": "1.0.0",
+  "author": "pmt",
+  "homepage": "https://github.com/PrivacyProMedical/pmtaro-viewer-tag-deidentification",
+  "license": "MIT",
+  "dependencies": []
+}

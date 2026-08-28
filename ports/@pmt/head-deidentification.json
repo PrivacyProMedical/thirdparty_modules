@@ -1,0 +1,12 @@
+{
+  "name": "head-deidentification",
+  "display_name": "Head De-Identification",
+  "uploader": "pmt",
+  "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-head-deidentification",
+  "description": "Anonymize DICOM head metadata for patient privacy protection.",
+  "version": "1.0.0",
+  "author": "pmt",
+  "homepage": "https://github.com/PrivacyProMedical/pmtaro-viewer-head-deidentification",
+  "license": "MIT",
+  "dependencies": []
+}

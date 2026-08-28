@@ -1,0 +1,12 @@
+{
+  "name": "ocr-deidentification",
+  "display_name": "OCR De-identification",
+  "uploader": "pmt",
+  "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-ocr-deidentification",
+  "description": "Run OCR over selected DICOM data, review recognized text regions in a confirmation list, and redact the checked regions (black coverage) into redacted DICOM files.",
+  "version": "1.0.0",
+  "author": "pmt",
+  "homepage": "https://github.com/PrivacyProMedical/pmtaro-viewer-ocr-deidentification",
+  "license": "MIT",
+  "dependencies": ["@pmt/newbee-ocr-cli"]
+}
