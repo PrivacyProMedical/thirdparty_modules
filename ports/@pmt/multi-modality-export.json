@@ -1,0 +1,11 @@
+{
+  "name": "multi-modality-export",
+  "display_name": "Multi-Modality Export",
+  "uploader": "pmt",
+  "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-tag-deidentification",
+  "description": "Project-wide DICOM, Excel and PDF de-identification. De-identify DICOM tags and automatically synchronize Excel files and PDFs (text + OCR layers) using the tag bindings configured in Excel Viewer / PDF Viewer, with a global serial-number ID field.",
+  "author": "pmt",
+  "homepage": "https://github.com/PrivacyProMedical/pmtaro-viewer-tag-deidentification",
+  "license": "MIT",
+  "dependencies": ["ocr-deidentification"]
+}

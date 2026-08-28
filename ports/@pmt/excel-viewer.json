@@ -2,11 +2,11 @@
   "name": "excel-viewer",
   "display_name": "Excel Viewer",
   "uploader": "pmt",
-  "repository": "",
-  "description": "",
+  "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-excel-viewer.git",
+  "description": "Excel Viewer module for PMTaro Viewer.",
   "version": "1.0.0",
   "author": "PMT",
-  "homepage": "",
+  "homepage": "https://github.com/PrivacyProMedical/pmtaro-viewer-excel-viewer",
   "license": "MIT",
   "dependencies": []
 }

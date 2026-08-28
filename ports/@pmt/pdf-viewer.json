@@ -2,11 +2,11 @@
   "name": "pdf-viewer",
   "display_name": "PDF Viewer",
   "uploader": "pmt",
-  "repository": "",
-  "description": "",
+  "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-pdf-viewer.git",
+  "description": "PDF Viewer module for PMTaro Viewer.",
   "version": "1.0.0",
   "author": "PMT",
-  "homepage": "",
+  "homepage": "https://github.com/PrivacyProMedical/pmtaro-viewer-pdf-viewer",
   "license": "MIT",
-  "dependencies": []
+  "dependencies": ["ocr-deidentification"]
 }
