@@ -1,0 +1,12 @@
+{
+  "name": "dicom-std-dir-export",
+  "display_name": "DICOM Standard Directory Export Tool",
+  "uploader": "pmt",
+  "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-dicom-std-dir-export",
+  "description": "Export DICOM files into a standard Patient/Study/Series/Instance folder structure.",
+  "version": "1.0.0",
+  "author": "pmt",
+  "homepage": "https://github.com/PrivacyProMedical/pmtaro-viewer-dicom-std-dir-export",
+  "license": "MIT",
+  "dependencies": []
+}

@@ -8,5 +8,6 @@
   "author": "pmt",
   "homepage": "https://github.com/PrivacyProMedical/pmtaro-viewer-ocr-deidentification",
   "license": "MIT",
+  "hidden": true,
   "dependencies": ["@pmt/newbee-ocr-cli"]
 }

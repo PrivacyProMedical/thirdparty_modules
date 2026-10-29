@@ -1,0 +1,12 @@
+{
+  "name": "dicom-to-nifti",
+  "display_name": "DICOM to NIfTI Converter",
+  "uploader": "pmt",
+  "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-dicom-to-nifti",
+  "description": "Convert DICOM series to NIfTI (.nii.gz) files.",
+  "version": "1.0.0",
+  "author": "pmt",
+  "homepage": "https://github.com/PrivacyProMedical/pmtaro-viewer-dicom-to-nifti",
+  "license": "MIT",
+  "dependencies": ["@pmt/dcmtk", "@pmt/dcm2niix"]
+}

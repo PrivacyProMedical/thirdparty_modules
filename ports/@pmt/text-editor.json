@@ -1,0 +1,12 @@
+{
+  "name": "text-editor",
+  "display_name": "Text Editor",
+  "uploader": "pmt",
+  "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-text-editor.git",
+  "description": "Text, Markdown, JSON, YAML, XML, TOML, INI and CSV/TSV viewer/editor (Monaco, vendored).",
+  "version": "1.0.0",
+  "author": "PMT",
+  "homepage": "https://github.com/PrivacyProMedical/pmtaro-viewer-text-editor",
+  "license": "MIT",
+  "dependencies": []
+}

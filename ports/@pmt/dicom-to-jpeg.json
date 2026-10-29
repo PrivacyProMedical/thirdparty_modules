@@ -1,0 +1,12 @@
+{
+  "name": "dicom-to-jpeg",
+  "display_name": "DICOM to JPEG Converter",
+  "uploader": "pmt",
+  "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-dicom-to-jpeg",
+  "description": "Convert DICOM files to JPEG images.",
+  "version": "1.0.0",
+  "author": "pmt",
+  "homepage": "https://github.com/PrivacyProMedical/pmtaro-viewer-dicom-to-jpeg",
+  "license": "MIT",
+  "dependencies": ["@pmt/dcmtk"]
+}
