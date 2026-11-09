@@ -2,11 +2,168 @@
 import fs from 'node:fs';
 import url from 'node:url';
 import path from 'node:path';
+import { fork } from 'node:child_process';
+
+const REMOTE_API_NAME = Symbol('PMTaro remote native API name');
+const remoteChildren = new Set();
+
+process.once('exit', () => {
+  for (const child of remoteChildren) {
+    if (!child.killed) child.kill();
+  }
+});
+
+function resolveNativeNodeExecutable() {
+  const binary = process.platform === 'win32' ? 'node.exe' : 'node';
+  const candidates = [
+    process.env.PMTARO_NODE_EXECUTABLE,
+    process.resourcesPath && path.join(process.resourcesPath, 'dsh', 'runtime', binary),
+    path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..', '..', 'dsh', 'runtime', binary),
+  ].filter(Boolean);
+  return candidates.find(candidate => fs.existsSync(candidate)) || binary;
+}
+
+function errorInfo(error) {
+  return {
+    name: error?.name || 'Error',
+    message: error?.message || String(error),
+    stack: error?.stack || '',
+    code: error?.code,
+  };
+}
+
+function errorFromInfo(info) {
+  const error = new Error(info?.message || 'Native module worker failed');
+  if (info?.name) error.name = info.name;
+  if (info?.stack) error.stack = info.stack;
+  if (info?.code !== undefined) error.code = info.code;
+  return error;
+}
+
+/**
+ * Electron 44 does not expose the C-linkage
+ * `node_api_get_module_file_name` symbol required by the Windows NAPI-9
+ * addons. A regular Node process does, so run just the native module API in a
+ * child process and proxy calls over advanced IPC. Job state remains inside
+ * that child for the lifetime of the apiLoader instance.
+ */
+function createNativeApiClient(apiDir, entryFile) {
+  let child = null;
+  let readyPromise = null;
+  let nextRequestId = 1;
+  const pending = new Map();
+
+  function rejectPending(error) {
+    for (const { reject } of pending.values()) reject(error);
+    pending.clear();
+  }
+
+  function start() {
+    if (child && child.connected) return readyPromise;
+    const workerPath = path.join(path.dirname(url.fileURLToPath(import.meta.url)), 'nativeApiWorker.mjs');
+    const env = { ...process.env };
+    delete env.ELECTRON_RUN_AS_NODE;
+    // The worker is a standalone Node process. Inheriting Electron's CLI flags
+    // or user NODE_OPTIONS can make Node reject arguments and exit before the
+    // worker sends its ready message.
+    delete env.NODE_OPTIONS;
+    child = fork(workerPath, [apiDir, entryFile], {
+      execPath: resolveNativeNodeExecutable(),
+      execArgv: [],
+      env,
+      // Electron embeds a different V8 from the standalone Node worker.
+      // Advanced serialization carries V8's clone version and can fail during
+      // deserialization across those runtimes. Module calls exchange JSON-safe
+      // values, so the default structured IPC is both sufficient and portable.
+      stdio: ['ignore', 'inherit', 'pipe', 'ipc'],
+      windowsHide: true,
+    });
+    let stderrTail = '';
+    child.stderr?.on('data', chunk => {
+      const text = String(chunk);
+      process.stderr.write(text);
+      stderrTail = `${stderrTail}${text}`.slice(-8000);
+    });
+    remoteChildren.add(child);
+    readyPromise = new Promise((resolve, reject) => {
+      const onReady = message => {
+        if (message?.type === 'ready') {
+          child.off('message', onReady);
+          child.off('error', onError);
+          resolve(message.functions);
+        } else if (message?.type === 'fatal') {
+          child.off('message', onReady);
+          child.off('error', onError);
+          reject(errorFromInfo(message.error));
+        }
+      };
+      const onError = error => {
+        child?.off('message', onReady);
+        reject(error);
+      };
+      child.on('message', onReady);
+      child.once('error', onError);
+      child.once('exit', (code, signal) => {
+        remoteChildren.delete(child);
+        const detail = stderrTail.trim();
+        const error = new Error(
+          `Native module worker exited (${signal || `code ${code}`})${detail ? `:\n${detail}` : ''}`,
+        );
+        reject(error);
+        rejectPending(error);
+        child = null;
+        readyPromise = null;
+      });
+    });
+    child.on('message', message => {
+      if (message?.type !== 'response') return;
+      const request = pending.get(message.id);
+      if (!request) return;
+      pending.delete(message.id);
+      if (message.ok) request.resolve(message.value);
+      else request.reject(errorFromInfo(message.error));
+    });
+    return readyPromise;
+  }
+
+  async function invoke(name, args) {
+    await start();
+    const id = nextRequestId++;
+    return new Promise((resolve, reject) => {
+      pending.set(id, { resolve, reject });
+      child.send({ type: 'invoke', id, name, args }, error => {
+        if (!error) return;
+        pending.delete(id);
+        reject(error);
+      });
+    });
+  }
+
+  async function load() {
+    const functions = await start();
+    const api = {};
+    for (const name of functions) {
+      const fn = (...args) => invoke(name, args);
+      Object.defineProperty(fn, REMOTE_API_NAME, { value: name });
+      api[name] = fn;
+    }
+    return api;
+  }
+
+  return { load };
+}
 
 export function createApiLoader(apiDir, entryFile = 'index.js') {
+  const nativeClient = process.platform === 'win32' && process.env.PMTARO_NATIVE_API_IN_PROCESS !== '1'
+    ? createNativeApiClient(apiDir, entryFile)
+    : null;
   const apiLoader = {
     async load() {
       if (this.api) return this.api;
+      if (nativeClient) {
+        this.api = await nativeClient.load();
+        return this.api;
+      }
       const cwd = process.cwd();
       process.chdir(apiDir);
       try {
@@ -17,6 +174,9 @@ export function createApiLoader(apiDir, entryFile = 'index.js') {
       return this.api;
     },
     run(apiFn) {
+      if (apiFn?.[REMOTE_API_NAME]) {
+        return (...args) => apiFn(...args);
+      }
       return function (...args) {
         const cwd = process.cwd();
         process.chdir(apiDir);
