@@ -1,0 +1,12 @@
+{
+  "name": "dicom-to-mp4",
+  "display_name": "DICOM to MP4 Converter",
+  "uploader": "pmt",
+  "repository": "https://github.com/PrivacyProMedical/pmtaro-viewer-dicom-to-mp4",
+  "description": "Convert DICOM files to MP4 videos.",
+  "version": "1.0.0",
+  "author": "pmt",
+  "homepage": "https://github.com/PrivacyProMedical/pmtaro-viewer-dicom-to-mp4",
+  "license": "MIT",
+  "dependencies": ["@pmt/dcmtk", "@pmt/ffmpeg"]
+}
